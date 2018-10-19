@@ -1,18 +1,31 @@
 <template>
   <div id="app">
 
-    <input id="user-input" type="text" v-model="user">
+    <!-- POLE ZMIANY ADRESATA -->
+    <!-- <input id="user-input" type="text" v-model="user"> -->
 
+    <!-- DIV Z GLOWNYM EKRANEM -->
     <div id="screen" ref="screen">
+
         <div v-for="response in responses" :key="response.id" class="row">
-          <div v-if="!response.editMode">
-            <div :class="[response.type, {'last-message-right': response.isLastMessage && response.type === 'response-right',
-            'last-message-left': response.isLastMessage && response.type === 'response-left'}]">
+
+          <!-- DYMEK WIADOMOSCI -->
+          <div v-if="!response.editMode" :class="'message-wrapper-' + response.type">
+            <div :class="[response.type, {
+            'last-message-right': response.isLastMessage && response.type === 'response-right',
+            'last-message-left': response.isLastMessage && response.type === 'response-left',
+            'first-message-right': response.isFirstMessage && response.type === 'response-right' && !response.isLastMessage,
+            'first-message-left': response.isFirstMessage && response.type === 'response-left' && !response.isLastMessage,
+            'last-first-left': response.isFirstMessage && response.type === 'response-left' && response.isLastMessage,          
+            'last-first-right': response.isFirstMessage && response.type === 'response-right' && response.isLastMessage          
+            }]">
               {{ response.message }}
             </div>
             <div class="edit-button" @click="response.editMode = true; messageToEdit = response.message"></div>
             <div class="delete-button" @click="deleteMessage(response.id)"></div>
           </div>
+
+          <!-- TRYB EDYCJI -->
           <div v-else>
             <div :class="[response.type, {'last-message-right': response.isLastMessage && response.type === 'response-right',
             'last-message-left': response.isLastMessage && response.type === 'response-left'}]">
@@ -21,27 +34,39 @@
               <button @click="response.editMode = false">Anuluj</button>
             </div>
           </div>
+
+          <!-- PODPIS -->
           <div v-show="response.isLastMessage" :class="response.type + '-signature'">
             {{ response.type === 'response-right' ? 'ecologic.io' : user }}
           </div>
+
         </div>
 
+
+        <!-- POLE TEKSTOWE NOWEJ WIADOMOSCI -->
         <div :class="['row', 'message-form', newMessageType + '-new-message']" v-show="showNewMessage">
-          <textarea id="new-message-input" v-model="newMessage" @keyup.enter="newMessage += '<br>'"></textarea>
-          <button @click="addMessage">Dodaj</button>
-          <button @click="showNewMessage = false; newMessage = ''">Anuluj</button>
+          <textarea id="new-message-input" v-model="newMessage" @keyup.enter="newMessage += '<br>'" 
+          placeholder="Wpisz nową wiadomość"></textarea>
+          <button class="add-button" @click="addMessage">Dodaj</button>
+          <button class="cancel-button" @click="showNewMessage = false; newMessage = ''">Anuluj</button>
         </div>
+
+        <!-- PRZYCISKI DODAWANIA NOWYCH WIADOMOSCI -->
         <div class="row buttons" v-show="!showNewMessage">
           <div id="left-button" @click="showNewMessage = true; newMessageType = 'response-left'">
           </div>
           <div id="right-button" @click="showNewMessage = true; newMessageType = 'response-right'">
           </div>
         </div>
+
     </div>
+
+    <!-- PRZYCISKI DO GENEROWANIA I RESETOWANIA KODU -->
     <div class="buttons-div">
       <button class="generate-button" @click="generateHtml"> {{ copied ? 'Skopiowano kod!' : 'Generuj kod' }} </button>
       <button class="reset-button" @click="reset">Resetuj</button>
     </div>
+
   </div>
 </template>
 
@@ -68,11 +93,13 @@ export default {
         type: this.newMessageType,
         message: this.newMessage,
         editMode: false,
-        isLastMessage: true
+        isLastMessage: true,
+        isFirstMessage: false
       })
       this.showNewMessage = false;
       this.newMessage = '';
       this.addSignatures();
+      this.updateFirstMessages();
       this.$refs.screen.scrollTop = this.$refs.screen.scrollHeight;
     },
     editMessage(id) {
@@ -82,6 +109,7 @@ export default {
     deleteMessage(id) {
       this.responses = this.responses.filter(response => response.id !== id);
       this.addSignatures();
+      this.updateFirstMessages();
     },
     addSignatures() {
       this.responses.forEach((response, i) => {
@@ -95,6 +123,18 @@ export default {
       })
       const lastMessage = this.responses[this.responses.length - 1];
       if (lastMessage) { lastMessage.isLastMessage = true };
+    },
+    updateFirstMessages() {
+      this.responses.forEach((response, i) => {
+        if (this.responses[i - 1]) {
+          if (this.responses[i - 1].type !== response.type) {
+            response.isFirstMessage = true;
+          } else {
+            response.isFirstMessage = false;
+          }          
+        }
+      this.responses[0].isFirstMessage = true;
+      })
     },
     generateHtml(){
       this.createMode = false;
@@ -156,11 +196,11 @@ export default {
 
 <style lang="scss">
 @import './scss/var';
-// *{
-// ::-moz-selection { background: $yellow; }
-// ::selection { background: $yellow; }
-// box-sizing: border-box;
-// }
+*{
+  ::-moz-selection { background: $blue; }
+  ::selection { background: $blue; }
+  box-sizing: border-box;
+}
 body, html, #app{
   font-family: $n;
   height: 100%;
@@ -186,10 +226,18 @@ textarea {
   padding: 18px;
   height: calc(100% - 135px);
   border-radius: 20px;
-  // overflow-y: scroll;
-  overflow: hidden;
+  overflow-y: scroll;
+  overflow-x: hidden;
   background-color: white;
-  
+  &::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+  }
+  &:hover{
+    .buttons{
+      opacity: 1;
+    }
+  }
 }
 
 .row{
@@ -204,29 +252,34 @@ textarea {
 }
 
 .buttons{
-  height: 100px;
+  opacity: 0;
+  margin-top: 10px;
   margin-bottom: 200px;
+  transition: all 100ms ease-in-out;
 }
 
 #left-button{
-  width: 50%;
-  height: 100px;
+  width: 30%;
+  margin-right: 40%;
+  height: 3em;
   float: left;
   cursor: pointer;
   border-radius: 17px 17px 17px 0;
   transition: all 130ms cubic-bezier(.12,1.11,.46,.99);
+  background-color: lighten($grey, 11);
   &:hover{
     background-color: $grey;
   }
 }
 
 #right-button{
-  width: 50%;
-  height: 100px;
+  width: 30%;
+  height: 3em;
   float: left;
   cursor: pointer;
   border-radius: 17px 17px 0 17px;
   transition: all 130ms cubic-bezier(.12,1.11,.46,.99);
+  background-color: lighten($blue, 45);
   &:hover{
     background-color: $blue;
   }
@@ -296,6 +349,16 @@ textarea {
   }
 }
 
+.message-wrapper-response-left{
+  margin: 5px 0;
+  text-align: left;
+}
+
+.message-wrapper-response-right{
+  margin: 5px 0;
+  text-align: right;
+}
+
 .response{
   height: auto;
   min-height: 100px;
@@ -304,32 +367,51 @@ textarea {
 
 .response-left{
   height: auto;
-  min-height: 100px;
-  width: 100%;
+  max-width: 70%;
+  display: inline-block;
   background-color: $grey;
-  border-radius: 17px;
-  margin: 5px 0;
+  border-radius: 0 17px 17px 0;
+  padding: 6px 12px;
 }
 
 .last-message-left{
-  border-radius: 17px 17px 17px 0 !important;
+  border-radius: 0 17px 17px 0 !important;
 }
 
 .last-message-right{
-  border-radius: 17px 17px 0 17px !important; 
+  border-radius: 17px 0 0 17px !important; 
+}
+
+.first-message-left{
+  border-radius: 17px 17px 17px 0 !important;
+}
+
+.first-message-right{
+  border-radius: 17px 17px 0 17px !important;
+}
+
+.last-first-left{
+  border-radius: 17px 17px 17px 0 !important;
+}
+
+.last-first-right{
+  border-radius: 17px 17px 0 17px !important;
 }
 
 .response-right{
   height: auto;
-  min-height: 100px;
-  width: 100%;
+  max-width: 70%;
+  display: inline-block;
   background-color: $blue;
-  border-radius: 17px;
-  margin: 5px 0;
+  border-radius: 17px 0 0 17px;
+  color: white;
+  padding: 6px 12px;
 }
 
 .message-form{
   padding: 10px;
+  margin-bottom: 200px;
+  margin-top: 10px;
   textarea{
     border-radius: 11px;
     margin-bottom: 10px;
@@ -342,18 +424,39 @@ textarea {
   background-color: $grey;
   border-radius: 17px 17px 17px 0;
   float: left;
+  ::-webkit-input-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  ::-moz-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  :-ms-input-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  :-moz-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
   textarea{
-    background-color: lighten($grey, 7);
+    color: black;
+    background-color: $grey;
+  }
+  button{
+    background-color: lighten($grey, 5);
+    color: black;
+    &:hover{
+      background-color: lighten($grey, 7);
+    }
   }
 }
 .response-right-new-message{
   background-color: $blue;
   border-radius: 17px 17px 0 17px;
+  padding-bottom: 34px;
+  ::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  ::-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  :-ms-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  :-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
   textarea{
-    background-color: lighten($blue, 10);
+    background-color: $blue;
   }
   button{
-      float: right;
+    float: right;
+    background-color: lighten($blue, 10);
+    &:hover{
+      background-color: lighten($blue, 12);
+    }
   }
 }
 
@@ -395,5 +498,27 @@ textarea {
 
 .response-right-signature{
   text-align: right;
+}
+
+.add-button{
+  margin: 0 5px;
+  border-radius: 90px;
+  border: none;
+  font-size: 0.9em;
+  line-height: 1.4em;
+  padding: 2px 14px;
+  color: white;
+  cursor: pointer;
+}
+
+.cancel-button{
+  margin: 0 5px;
+  border-radius: 90px;
+  border: none;
+  font-size: 0.9em;
+  line-height: 1.4em;
+  padding: 2px 14px;
+  color: white;
+  cursor: pointer;
 }
 </style>
