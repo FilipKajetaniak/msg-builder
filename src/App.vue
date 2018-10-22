@@ -21,10 +21,12 @@
             }]">
               {{ response.message }}
             </div>
+             <!--
             <div class="message-edit-container">
               <div class="edit-button" @click="response.editMode = true; messageToEdit = response.message"></div>
               <div class="delete-button" @click="deleteMessage(response.id)"></div>
             </div>
+            -->
           </div>
 
           <!-- TRYB EDYCJI -->
@@ -231,7 +233,7 @@ textarea {
 
 #screen{
   margin: 0 auto;
-  width: 500px;
+  width: 400px;
   padding: 18px;
   height: calc(100% - 135px);
   border-radius: 20px;
@@ -296,12 +298,12 @@ textarea {
 
 .buttons-div{
   margin: 35px auto 0 auto;
-  width: 500px;
+  width: 400px;
 }
 
 .generate-button{
   display: block;
-  width: 380px;
+  width: 280px;
   height: 40px;
   cursor: pointer;
   float: left;
@@ -359,12 +361,12 @@ textarea {
 }
 
 .message-wrapper-response-left{
-  margin: 5px 0;
+  margin: 2px 0;
   text-align: left;
 }
 
 .message-wrapper-response-right{
-  margin: 5px 0;
+  margin: 2px 0;
   text-align: right;
 }
 
@@ -384,11 +386,11 @@ textarea {
 }
 
 .last-message-left{
-  border-radius: 0 17px 17px 0 !important;
+  border-radius: 0 17px 17px 17px !important;
 }
 
 .last-message-right{
-  border-radius: 17px 0 0 17px !important; 
+  border-radius: 17px 0 17px 17px !important; 
 }
 
 .first-message-left{
