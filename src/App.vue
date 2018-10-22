@@ -21,8 +21,10 @@
             }]">
               {{ response.message }}
             </div>
-            <div class="edit-button" @click="response.editMode = true; messageToEdit = response.message"></div>
-            <div class="delete-button" @click="deleteMessage(response.id)"></div>
+            <div class="message-edit-container">
+              <div class="edit-button" @click="response.editMode = true; messageToEdit = response.message"></div>
+              <div class="delete-button" @click="deleteMessage(response.id)"></div>
+            </div>
           </div>
 
           <!-- TRYB EDYCJI -->
@@ -46,16 +48,16 @@
         <!-- POLE TEKSTOWE NOWEJ WIADOMOSCI -->
         <div :class="['row', 'message-form', newMessageType + '-new-message']" v-show="showNewMessage">
           <textarea id="new-message-input" v-model="newMessage" @keyup.enter="newMessage += '<br>'" 
-          placeholder="Wpisz nową wiadomość"></textarea>
+          placeholder="Wpisz nową wiadomość" ref="newMessage"></textarea>
           <button class="add-button" @click="addMessage">Dodaj</button>
           <button class="cancel-button" @click="showNewMessage = false; newMessage = ''">Anuluj</button>
         </div>
 
         <!-- PRZYCISKI DODAWANIA NOWYCH WIADOMOSCI -->
         <div class="row buttons" v-show="!showNewMessage">
-          <div id="left-button" @click="showNewMessage = true; newMessageType = 'response-left'">
+          <div id="left-button" @click="toggleNewMessageEditor('response-left')">
           </div>
-          <div id="right-button" @click="showNewMessage = true; newMessageType = 'response-right'">
+          <div id="right-button" @click="toggleNewMessageEditor('response-right')">
           </div>
         </div>
 
@@ -110,6 +112,13 @@ export default {
       this.responses = this.responses.filter(response => response.id !== id);
       this.addSignatures();
       this.updateFirstMessages();
+    },
+    toggleNewMessageEditor(type){
+      this.showNewMessage = true;
+      this.newMessageType = type;
+      this.$nextTick(() => {
+        this.$refs.newMessage.focus();
+      })
     },
     addSignatures() {
       this.responses.forEach((response, i) => {
@@ -460,23 +469,23 @@ textarea {
   }
 }
 
+.message-edit-container{
+  height: 30px;
+  width: 60px;
+  position: relative;
+}
+
 .edit-button{
   height: 30px;
   width: 30px;
-  position: absolute;
   background-color: black;
-  left: 10px;
-  top: 10px;
   display: none;
 }
 
 .delete-button{
   height: 30px;
   width: 30px;
-  position: absolute;
   background-color: red;
-  left: 50px;
-  top: 10px;
   display: none;
 }
 
