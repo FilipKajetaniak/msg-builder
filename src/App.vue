@@ -1,9 +1,6 @@
 <template>
   <div id="app">
 
-    <!-- POLE ZMIANY ADRESATA -->
-    <!-- <input id="user-input" type="text" v-model="user"> -->
-
     <!-- DIV Z GLOWNYM EKRANEM -->
     <div id="screen" ref="screen">
 
@@ -11,6 +8,12 @@
 
           <!-- DYMEK WIADOMOSCI -->
           <div v-if="!response.editMode" :class="'message-wrapper-' + response.type">
+            
+            <div v-show="response.type === 'response-right'" class="message-edit-container">
+              <i class="fas fa-pencil-alt" @click="editResponse(response.id)"></i>
+              <i class="fas fa-times" @click="deleteMessage(response.id)"></i>
+            </div>
+
             <div :class="[response.type, {
             'last-message-right': response.isLastMessage && response.type === 'response-right',
             'last-message-left': response.isLastMessage && response.type === 'response-left',
@@ -21,29 +24,48 @@
             }]">
               {{ response.message }}
             </div>
-             <!--
-            <div class="message-edit-container">
-              <div class="edit-button" @click="response.editMode = true; messageToEdit = response.message"></div>
-              <div class="delete-button" @click="deleteMessage(response.id)"></div>
+             
+            <div v-show="response.type === 'response-left'" class="message-edit-container">
+              <i class="fas fa-pencil-alt" @click="editResponse(response.id)"></i>
+              <i class="fas fa-times" @click="deleteMessage(response.id)"></i>
             </div>
-            -->
+           
           </div>
 
           <!-- TRYB EDYCJI -->
           <div v-else>
-            <div :class="[response.type, {'last-message-right': response.isLastMessage && response.type === 'response-right',
-            'last-message-left': response.isLastMessage && response.type === 'response-left'}]">
-              <textarea v-model="messageToEdit"></textarea>
-              <button @click="editMessage(response.id); response.editMode = false;">Zapisz</button>
-              <button @click="response.editMode = false">Anuluj</button>
+            <div :class="[response.type + '-edit-message', response.type, {
+            'last-message-right': response.isLastMessage && response.type === 'response-right',
+            'last-message-left': response.isLastMessage && response.type === 'response-left',
+            'first-message-right': response.isFirstMessage && response.type === 'response-right' && !response.isLastMessage,
+            'first-message-left': response.isFirstMessage && response.type === 'response-left' && !response.isLastMessage,
+            'last-first-left': response.isFirstMessage && response.type === 'response-left' && response.isLastMessage,          
+            'last-first-right': response.isFirstMessage && response.type === 'response-right' && response.isLastMessage          
+            }]">
+              <textarea class="new-message-input" v-model="messageToEdit"></textarea>
+              <div class="button-wrapper">
+                <button class="add-button" @click="editMessage(response.id); response.editMode = false;">Zapisz</button>
+                <button class="cancel-button" @click="response.editMode = false">Anuluj</button>
+              </div>
             </div>
           </div>
 
           <!-- PODPIS -->
-          <div v-show="response.isLastMessage" :class="response.type + '-signature'">
-            {{ response.type === 'response-right' ? 'ecologic.io' : user }}
+          <div v-show="!response.signatureEdit && !response.editMode">
+            <div v-show="response.isLastMessage && !user" :class="response.type + '-signature'">
+              <span v-if="response.type === 'response-left'" class="add-user" @click="editUser(response.id)">Uzytkownik</span>
+              <span v-else>ecologic.io</span>
+            </div>
+            <div v-show="response.isLastMessage && user" :class="response.type + '-signature'">
+              {{ response.type === 'response-right' ? 'ecologic.io' : user }}
+            </div>
           </div>
-
+          <div v-show="response.signatureEdit && !response.editMode">
+            <input type="text" class="user-input response-left-signature" 
+            :ref="'userInput' + response.id">
+            <i class="fas fa-check icon" @click="saveUser(response.id)"></i>
+            <i class="fas fa-times icon" @click="response.signatureEdit = false"></i>
+          </div>
         </div>
 
 
@@ -51,8 +73,10 @@
         <div :class="['row', 'message-form', newMessageType + '-new-message']" v-show="showNewMessage">
           <textarea id="new-message-input" v-model="newMessage" @keyup.enter="newMessage += '<br>'" 
           placeholder="Wpisz nową wiadomość" ref="newMessage"></textarea>
-          <button class="add-button" @click="addMessage">Dodaj</button>
-          <button class="cancel-button" @click="showNewMessage = false; newMessage = ''">Anuluj</button>
+          <div class="button-wrapper">
+            <button class="add-button" @click="addMessage">Dodaj</button>
+            <button class="cancel-button" @click="showNewMessage = false; newMessage = ''">Anuluj</button>
+          </div>
         </div>
 
         <!-- PRZYCISKI DODAWANIA NOWYCH WIADOMOSCI -->
@@ -67,7 +91,7 @@
 
     <!-- PRZYCISKI DO GENEROWANIA I RESETOWANIA KODU -->
     <div class="buttons-div">
-      <button class="generate-button" @click="generateHtml"> {{ copied ? 'Skopiowano kod!' : 'Generuj kod' }} </button>
+      <button :class="['generate-button', {'generated': copied}]" @click="generateHtml"> {{ copied ? 'Skopiowano kod!' : 'Generuj kod' }} </button>
       <button class="reset-button" @click="reset">Resetuj</button>
     </div>
 
@@ -98,7 +122,8 @@ export default {
         message: this.newMessage,
         editMode: false,
         isLastMessage: true,
-        isFirstMessage: false
+        isFirstMessage: false,
+        signatureEdit: false
       })
       this.showNewMessage = false;
       this.newMessage = '';
@@ -147,6 +172,18 @@ export default {
       this.responses[0].isFirstMessage = true;
       })
     },
+    editResponse(id) {
+      this.responses.find(res => res.id === id).editMode = true; 
+      this.messageToEdit = this.responses.find(res => res.id === id).message;
+      this.responses.map(res => {
+        if (res.id !== id) {
+          let newRes = res;
+          newRes.editMode = false;
+          return newRes
+        }
+        return res
+      })
+    },
     generateHtml(){
       this.createMode = false;
       this.generatedHtml = '';
@@ -169,11 +206,9 @@ export default {
         return output;
       };
       this.generatedHtml = `<!DOCTYPE html> <html> <head> <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet"> <title>Konwersacja</title> <style>*{box-sizing: border-box;}.clearfix:after, .messages:after{content: ""; display: table; clear: both; height: 0; visibility: hidden;}body{background-color: #fff; height: 100%; font-family: 'Roboto', sans-serif;}.screen{background-color: #fff; height: 100%; width: 100%; margin: 0 auto; /* box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2); */}.leftSign{float: left; color: black; margin-right: 70px; padding: 25px 25px 25px 25px; font-size: 33px; margin-bottom: 20px;}.rightSign{float: right; color: black; margin-left: 70px; padding: 25px 25px 25px 25px; font-size: 33px; margin-bottom: 20px;}.conversation{height: 100%; overflow: auto; padding: 25px; padding-bottom: 0;}.messages{/* margin-bottom: 20px; */}.messages--received .message{float: left; background-color: #ddd; border-bottom-left-radius: 5px; border-top-left-radius: 5px; margin-right: 70px; padding: 25px 25px 25px 25px;}.messages--received .message:first-child{border-top-left-radius: 15px;}.messages--received .message:last-child{border-bottom-left-radius: 15px;}.messages--sent .message{float: right; background-color: #1998e6; color: #fff; border-bottom-right-radius: 5px; border-top-right-radius: 5px; margin-left: 70px; padding: 25px 25px 25px 25px;}.messages--sent .message:first-child{border-top-right-radius: 15px;}.messages--sent .message:last-child{border-bottom-right-radius: 15px;}.message{display: inline-block; margin-bottom: 2px; clear: both; padding: 7px 13px; font-size: 38px; border-radius: 15px; line-height: 1.4;}.message--thumb{background-color: transparent !important; padding: 0; margin-top: 5px; margin-bottom: 10px; width: 20px; height: 20px; border-radius: 0px !important;}.text-bar{height: 50px; border-top: 1px solid #ccc;}.text-bar__field{float: left; width: calc(100% - 50px); height: 100%;}.text-bar__field input{width: 100%; height: 100%; padding: 0 20px; border: none; position: relative; vertical-align: middle; font-size: 24px;}.text-bar__thumb{float: left; width: 50px; height: 100%; padding: 10px;}.text-bar__thumb:hover{opacity: .8;}.text-bar__thumb .thumb{width: 100%; height: 100%; cursor: pointer;}.thumb{display: block;}.anim-wiggle{-webkit-animation: wiggle .2s ease infinite; animation: wiggle .2s ease infinite;}.anim-wiggle-2{-webkit-animation: wiggle2 .2s ease infinite; animation: wiggle2 .2s ease infinite;}@-webkit-keyframes wiggle{0%{-webkit-transform: rotateZ(5deg); transform: rotateZ(5deg);}50%{-webkit-transform: rotateZ(-5deg); transform: rotateZ(-5deg);}100%{-webkit-transform: rotateZ(5deg); transform: rotateZ(5deg);}}@keyframes wiggle{0%{-webkit-transform: rotateZ(5deg); transform: rotateZ(5deg);}50%{-webkit-transform: rotateZ(-5deg); transform: rotateZ(-5deg);}100%{-webkit-transform: rotateZ(5deg); transform: rotateZ(5deg);}}@-webkit-keyframes wiggle2{0%{-webkit-transform: rotateZ(10deg); transform: rotateZ(10deg);}50%{-webkit-transform: rotateZ(-10deg); transform: rotateZ(-10deg);}100%{-webkit-transform: rotateZ(10deg); transform: rotateZ(10deg);}}@keyframes wiggle2{0%{-webkit-transform: rotateZ(10deg); transform: rotateZ(10deg);}50%{-webkit-transform: rotateZ(-10deg); transform: rotateZ(-10deg);}100%{-webkit-transform: rotateZ(10deg); transform: rotateZ(10deg);}}.thumb-img, .thumb{background-size: contain; background-repeat: no-repeat;}</style> </head> <body> <div class="screen"> <div class="conversation"> ${convertToHtml()}</div></div></body> </html>`;
-      setTimeout(() => { 
-        this.copyHtml();
-        this.copied = true;
-      }, 100);
-      setTimeout(() => { this.copied = false }, 2000);
+      setTimeout(() => { this.copied = true; }, 50);
+      setTimeout(() => { this.copyHtml(); }, 200);
+      setTimeout(() => { this.copied = false }, 1000);
     },
     reset() {
       this.responses = [];
@@ -200,6 +235,22 @@ export default {
         document.getSelection().removeAllRanges();    
         document.getSelection().addRange(selected);   
       }
+    },
+    saveUser(id) {
+      this.user = this.$refs['userInput' + id][0].value;
+      this.responses.find(res => res.id === id).signatureEdit = false;
+    },
+    editUser(id) {
+      this.responses.find(res => res.id === id).signatureEdit = true;
+      this.responses.map(res => {
+        if (res.id !== id) {
+          let newRes = res;
+          newRes.signatureEdit = false;
+          return newRes
+        }
+        return res
+      })
+      this.$nextTick(() => { this.$refs['userInput'+id][0].focus() });
     }
   }
 }
@@ -275,7 +326,7 @@ textarea {
   height: 3em;
   float: left;
   cursor: pointer;
-  border-radius: 17px 17px 17px 0;
+  border-radius: 17px 17px 17px 5px;
   transition: all 130ms cubic-bezier(.12,1.11,.46,.99);
   background-color: lighten($grey, 11);
   &:hover{
@@ -288,7 +339,7 @@ textarea {
   height: 3em;
   float: left;
   cursor: pointer;
-  border-radius: 17px 17px 0 17px;
+  border-radius: 17px 17px 5px 17px;
   transition: all 130ms cubic-bezier(.12,1.11,.46,.99);
   background-color: lighten($blue, 45);
   &:hover{
@@ -315,7 +366,7 @@ textarea {
   -webkit-box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
   -moz-box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
   box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
-  transition: all 130ms cubic-bezier(.12,1.11,.46,.99);
+  transition: all 150ms cubic-bezier(.76,.18,.23,.96);
   &:hover{
     transform: translateY(-2px);
     -webkit-box-shadow: 0px 5px 8px 1px rgba(0,124,201,0.08);
@@ -345,7 +396,7 @@ textarea {
   -webkit-box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
   -moz-box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
   box-shadow: 0px 3px 7px 1px rgba(0,124,201,0.1);
-  transition: all 130ms cubic-bezier(.25,.99,.46,.84);
+  transition: all 150ms cubic-bezier(.76,.18,.23,.96);
   &:hover{
     transform: translateY(-2px);
     -webkit-box-shadow: 0px 5px 8px 1px rgba(0,124,201,0.08);
@@ -353,6 +404,7 @@ textarea {
     box-shadow: 0px 5px 8px 1px rgba(0,124,201,0.08);
   }
   &:active{
+    transition: all 50ms cubic-bezier(.76,.18,.23,.96);
     transform: translateY(1px);
     -webkit-box-shadow: 0px 0px 0px 0px rgba(0,124,201,0.3);
     -moz-box-shadow: 0px 0px 0px 0px rgba(0,124,201,0.3);
@@ -363,11 +415,21 @@ textarea {
 .message-wrapper-response-left{
   margin: 2px 0;
   text-align: left;
+  &:hover{
+    .message-edit-container{
+      display: inline-block;
+    }
+  }
 }
 
 .message-wrapper-response-right{
   margin: 2px 0;
   text-align: right;
+  &:hover{
+    .message-edit-container{
+      display: inline-block;
+    }
+  }
 }
 
 .response{
@@ -381,32 +443,32 @@ textarea {
   max-width: 70%;
   display: inline-block;
   background-color: $grey;
-  border-radius: 0 17px 17px 0;
+  border-radius: 5px 17px 17px 5px;
   padding: 6px 12px;
 }
 
 .last-message-left{
-  border-radius: 0 17px 17px 17px !important;
+  border-radius: 5px 17px 17px 17px !important;
 }
 
 .last-message-right{
-  border-radius: 17px 0 17px 17px !important; 
+  border-radius: 17px 5px 17px 17px !important; 
 }
 
 .first-message-left{
-  border-radius: 17px 17px 17px 0 !important;
+  border-radius: 17px 17px 17px 5px !important;
 }
 
 .first-message-right{
-  border-radius: 17px 17px 0 17px !important;
+  border-radius: 17px 17px 5px 17px !important;
 }
 
 .last-first-left{
-  border-radius: 17px 17px 17px 0 !important;
+  border-radius: 17px !important;
 }
 
 .last-first-right{
-  border-radius: 17px 17px 0 17px !important;
+  border-radius: 17px !important;
 }
 
 .response-right{
@@ -414,7 +476,7 @@ textarea {
   max-width: 70%;
   display: inline-block;
   background-color: $blue;
-  border-radius: 17px 0 0 17px;
+  border-radius: 17px 5px 5px 17px;
   color: white;
   padding: 6px 12px;
 }
@@ -433,7 +495,7 @@ textarea {
 
 .response-left-new-message{
   background-color: $grey;
-  border-radius: 17px 17px 17px 0;
+  border-radius: 17px 17px 17px 5px;
   float: left;
   ::-webkit-input-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
   ::-moz-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
@@ -453,17 +515,69 @@ textarea {
 }
 .response-right-new-message{
   background-color: $blue;
-  border-radius: 17px 17px 0 17px;
+  border-radius: 17px 17px 5px 17px;
   padding-bottom: 34px;
   ::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
   ::-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
   :-ms-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
   :-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  .button-wrapper{
+    float: right;
+  }
   textarea{
     background-color: $blue;
   }
   button{
+    background-color: lighten($blue, 10);
+    &:hover{
+      background-color: lighten($blue, 12);
+    }
+  }
+}
+
+.response-left-edit-message{
+  background-color: $grey;
+  float: left;
+  margin-bottom: 2px;
+  ::-webkit-input-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  ::-moz-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  :-ms-input-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  :-moz-placeholder { color: rgba(0, 0, 0, 0.511) !important; }
+  .button-wrapper{
+    float: left;
+  }
+  textarea{
+    color: black;
+    background-color: $grey;
+  }
+  button{
+    background-color: lighten($grey, 5);
+    color: black;
+    margin-left: 0;
+    &:hover{
+      background-color: lighten($grey, 7);
+    }
+  }
+}
+.response-right-edit-message{
+  background-color: $blue;
+  float: right;
+  clear: both;
+  margin-bottom: 2px;
+  color: white !important;
+  ::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  ::-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  :-ms-input-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  :-moz-placeholder { color: rgba(255, 255, 255, 0.671) !important; }
+  .button-wrapper{
     float: right;
+  }
+  textarea{
+    background-color: $blue;
+    color: white !important;
+  }
+  button{
+    margin-right: 0px;
     background-color: lighten($blue, 10);
     &:hover{
       background-color: lighten($blue, 12);
@@ -472,9 +586,17 @@ textarea {
 }
 
 .message-edit-container{
-  height: 30px;
-  width: 60px;
-  position: relative;
+  display: inline-block;
+  line-height: 30px;
+  color: $grey;
+  display: none;
+  i{
+    cursor: pointer;
+    margin: 0 1px;
+    &:hover{
+      color: $dgrey;
+    }
+  }
 }
 
 .edit-button{
@@ -505,10 +627,14 @@ textarea {
 
 .response-left-signature{
   text-align: left;
+  padding-top: 4px;
+  color: $dgrey;
 }
 
 .response-right-signature{
   text-align: right;
+  padding-top: 4px;
+  color: $dgrey;
 }
 
 .add-button{
@@ -532,4 +658,47 @@ textarea {
   color: white;
   cursor: pointer;
 }
+
+.user-input{
+  border: none;
+  color: $dgrey;
+  width: 110px;
+}
+
+.icon{
+  color: $grey;
+  margin-left: 6px;
+  cursor: pointer;
+  &:hover{
+    color: $dgrey;
+  }
+}
+
+.add-user{
+  cursor: pointer;
+  &:hover{
+    opacity: 0.7;
+  }
+}
+
+.fa-pencil-alt{
+  font-size: 0.8em !important;
+  transform: translateY(-2px);
+}
+
+.generated{
+  background-color: white;
+  color: $green;
+  transform: scale(1.08) translateY(-10px);
+  -webkit-box-shadow: 0px 17px 18px 7px rgba(0,124,201,0.05);
+  -moz-box-shadow: 0px 17px 18px 7px rgba(0,124,201,0.05);
+  box-shadow: 0px 17px 18px 7px rgba(0,124,201,0.05);
+  &:hover{
+    transform: scale(1.08) translateY(-10px);
+    -webkit-box-shadow: 0px 13px 18px 3px rgba(0,124,201,0.05);
+    -moz-box-shadow: 0px 13px 18px 3px rgba(0,124,201,0.05);
+    box-shadow: 0px 13px 18px 3px rgba(0,124,201,0.05);
+  }
+}
+
 </style>
